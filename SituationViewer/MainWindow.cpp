@@ -107,6 +107,11 @@ MainWindow::MainWindow(QWidget *parent) :
     scene->addObject(circle);
     circle->setLongitude(-3);
     circle->setLatitude(66);
+    //        MapGraphicsObject * circle = new CircleObject(5000, false, QColor(255, 0, 0, 100));
+    //        circle->setLatitude(34+0.2*i);
+    //        circle->setLongitude(122+0.2*j);
+    //        scene->addObject(circle);
+
     // Create a circle on the map to demonstrate MapGraphicsObject a bit
     // The circle can be clicked/dragged around and should be ~5km in radius
     //    for (int i=0;i<100;i++) {
@@ -125,12 +130,14 @@ MainWindow::MainWindow(QWidget *parent) :
     timer=new QTimer(this);
     connect(timer,&QTimer::timeout,[=](){
         if(!ReadSharedMemoryData())return;
-        for (int i=0;i<sharedSimData.count;i++)
+        //更新已有的
+        for (size_t i=0;i<sharedSimData.count;i++)
         {
             auto mnID=sharedSimData.unitInfos[i].mnID;
             auto alliance=sharedSimData.unitInfos[i].alliance;
             auto mnModelType=sharedSimData.unitInfos[i].mnModelType;
             auto mzUnit=sharedSimData.unitInfos[i].mzUnit;
+            //不存在就创建
             if(!graphicsObjects.contains(mnID))
             {
                 QPixmap pix=GeneratePixmapFromSvg("D:/1.learn/3.c++/SituationViewer/SituationViewer/images/"+mnModelTypeSymbology[mnModelType],
@@ -144,8 +151,6 @@ MainWindow::MainWindow(QWidget *parent) :
                 scene->addObject(pixmapObject);
                 scene->addObject(textObject);
             }
-            auto lat=sharedSimData.unitInfos[i].mfLat_rad*C_RADTODEG;
-            auto lon=sharedSimData.unitInfos[i].mfLon_rad*C_RADTODEG;
             auto heading=sharedSimData.unitInfos[i].mfHeading_rad*C_RADTODEG;
 
             graphicsObjects[mnID].pixmapObject->setRotation(heading);
@@ -156,10 +161,33 @@ MainWindow::MainWindow(QWidget *parent) :
             int hh=sharedSimData.simTime.mfSimTime/3600;
             int min=(sharedSimData.simTime.mfSimTime-hh*3600)/60;
             double sec=(sharedSimData.simTime.mfSimTime-hh*3600-min*60);
+
             QString simTime=QString("仿真时间：%1:%2:%3").arg(hh,4, 10, QLatin1Char('0')).arg(min,2, 10, QLatin1Char('0')).arg(QString::number(sec, 'g', 4));
             simTimeLabel->setText(simTime);
             auto dateTime=QDateTime::fromMSecsSinceEpoch(sharedSimData.simTime.dateTime);
             datatimeLabel->setText("仿真日期："+dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+
+        }
+        //删除不存在的
+        QSet<long> currentmnID;
+        for (size_t i=0;i<sharedSimData.count;i++)
+        {
+            auto mnID=sharedSimData.unitInfos[i].mnID;
+            currentmnID.insert(mnID);
+        }
+         QSet<long> idToDelete;
+        for (auto  key:graphicsObjects.keys())
+        {
+            if(!currentmnID.contains(key))
+            {
+                idToDelete.insert(key);
+            }
+        }
+        for (auto  key:idToDelete)
+        {
+            scene->removeObject(graphicsObjects[key].textObject);
+             scene->removeObject(graphicsObjects[key].pixmapObject);
+            graphicsObjects.remove(key);
 
         }
 
